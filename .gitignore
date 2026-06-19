@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build output
+build/
+dist/
+out/
+.npm/
+
+# Testing
+coverage/
+
+# Misc
+*.pem
+*.p12
+*.key
+*.crt
