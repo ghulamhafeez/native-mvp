@@ -4,6 +4,7 @@
     "slug": "native-mvp",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "nativemvp",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {

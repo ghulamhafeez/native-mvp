@@ -6,15 +6,13 @@ export default {
     slug: 'native-mvp',
     version: '1.0.0',
     orientation: 'portrait',
+    scheme: 'nativemvp',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
     splash: {
-      image: './assets/splash.png',
+      image: './assets/splash-icon.png',   // file jo actually exists hai
       resizeMode: 'contain',
       backgroundColor: '#ffffff',
-    },
-    updates: {
-      fallbackToCacheTimeout: 0,
     },
     assetBundlePatterns: ['**/*'],
     ios: {
@@ -23,14 +21,15 @@ export default {
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/android-icon-foreground.png',
+        backgroundImage: './assets/android-icon-background.png',
         backgroundColor: '#E6F4FE',
       },
+      predictiveBackGestureEnabled: false,
     },
     web: {
       favicon: './assets/favicon.png',
     },
     extra: {
-      backendUrl: process.env.REACT_NATIVE_API_URL || 'http://192.168.18.2:3000',
       safePayBaseUrl: process.env.SAFE_PAY_BASE_URL || 'https://sandbox.api.getsafepay.com',
     },
   },
