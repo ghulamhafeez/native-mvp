@@ -4,12 +4,19 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-type Screen = 'home' | 'amount' | 'subscription' | 'subscription-success';
+type Screen =
+  | 'home'
+  | 'amount'
+  | 'subscription'
+  | 'subscription-success'
+  | 'history'
+  | 'invoice-history'
+  | 'invoice';
 
 type Props = {
   onNavigate: (screen: Screen) => void;
@@ -35,7 +42,19 @@ const MENU_CARDS: MenuCard[] = [
     title:       'Subscription',
     description: 'Choose a recurring plan and subscribe',
     screen:      'subscription',
-    badge:       '7 days free',
+
+  },
+  {
+    icon:        '📋',
+    title:       'Transaction History',
+    description: 'View payments and manage refunds',
+    screen:      'history',
+  },
+  {
+    icon:        '🧾',
+    title:       'Invoice History',
+    description: 'Download or share payment receipts',
+    screen:      'invoice-history',
   },
 ];
 

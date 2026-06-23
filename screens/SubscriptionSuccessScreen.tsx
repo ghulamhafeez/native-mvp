@@ -11,6 +11,7 @@ import {
 
 type SubscriptionResult = {
   subscriptionId?: string;
+  invoiceId?: string;
   planId: string;
   planName: string;
   status: 'active' | 'cancelled';
@@ -19,10 +20,16 @@ type SubscriptionResult = {
 type Props = {
   result: SubscriptionResult;
   onManage?: () => void;
+  onViewInvoice?: () => void;
   onHome?:   () => void;
 };
 
-export default function SubscriptionSuccessScreen({ result, onManage, onHome }: Props) {
+export default function SubscriptionSuccessScreen({
+  result,
+  onManage,
+  onViewInvoice,
+  onHome,
+}: Props) {
   const scaleAnim   = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -85,8 +92,13 @@ export default function SubscriptionSuccessScreen({ result, onManage, onHome }: 
             <Text style={styles.manageBtnText}>Manage Subscription</Text>
           </TouchableOpacity>
         )}
+        {onViewInvoice && (
+          <TouchableOpacity style={styles.invoiceBtn} onPress={onViewInvoice} activeOpacity={0.85}>
+            <Text style={styles.invoiceBtnText}>View Invoice</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
-          style={[styles.homeBtn, !onManage && styles.homeBtnFull]}
+          style={[styles.homeBtn, !onManage && !onViewInvoice && styles.homeBtnFull]}
           onPress={onHome}
           activeOpacity={0.85}
         >
@@ -214,6 +226,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   manageBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  invoiceBtn: {
+    borderWidth: 1.5,
+    borderColor: '#111827',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  invoiceBtnText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#111827',

@@ -7,21 +7,20 @@ import {
   ActivityIndicator,
   StyleSheet,
   Alert,
-  SafeAreaView,
   Modal,
   StatusBar,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
-  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, WebViewNavigation } from 'react-native-webview';
 import * as Linking from 'expo-linking';
+import { addTransaction } from '../store/transactions';
+import { createInvoiceForTransaction } from '../api/invoices';
+import { SAFEPAY_CLIENT_KEY, SAFEPAY_SANDBOX_URL } from '../api/safepayConfig';
 
 // ─── SafePay Config ───────────────────────────────────────────────────────────
-const SAFEPAY_CLIENT_KEY  = 'sec_a2096262-caac-4f82-b581-06b1e4b89937';
-const SAFEPAY_SANDBOX_URL = 'https://sandbox.api.getsafepay.com';
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 async function createSafepayTracker(
   clientKey: string,
@@ -63,15 +62,21 @@ function buildCheckoutUrl(token: string, orderId: string): string {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 type Props = {
   onBack?: () => void;
+  onInvoiceGenerated?: (invoiceId: string) => void;
 };
 
-export default function AmountScreen({ onBack }: Props) {
+export default function AmountScreen({ onBack, onInvoiceGenerated }: Props) {
   const [amount, setAmount]           = useState('');
   const [loading, setLoading]         = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [showWebView, setShowWebView] = useState(false);
-  const handledRef = useRef(false);
-  const orderIdRef = useRef(`order_${Date.now()}`);
+  const handledRef    = useRef(false);
+  const orderIdRef    = useRef(`order_${Date.now()}`);
+  // Keep the tracker token so we can pass it to refund API
+  const trackerToken  = useRef<string>('');
+  // Capture amount in a ref so handleRedirect always reads the current value
+  // (avoids stale closure — amountInPKR is a derived value that resets on re-render)
+  const amountRef     = useRef<number>(0);
 
   const parsedAmount  = parseFloat(amount.replace(/,/g, ''));
   const isValid       = !isNaN(parsedAmount) && parsedAmount > 0;
@@ -87,7 +92,7 @@ export default function AmountScreen({ onBack }: Props) {
   }, [showWebView]);
 
   // ── SafePay redirect URL patterns (from official docs) ──
-  const handleRedirect = (url: string) => {
+  const handleRedirect = async (url: string) => {
     if (handledRef.current) return;
     const isSuccess = url.includes('action=complete')  ||
                       url.includes('/external/complete');
@@ -97,9 +102,44 @@ export default function AmountScreen({ onBack }: Props) {
     if (isSuccess) {
       handledRef.current = true;
       setShowWebView(false);
-      Alert.alert('Payment Successful 🎉', 'Aapka payment complete ho gaya!', [
-        { text: 'OK', onPress: () => { handledRef.current = false; setAmount(''); } },
-      ]);
+
+      // Record in transaction store so it shows up in history with refund support
+      const transaction = await addTransaction({
+        paymentToken: trackerToken.current,
+        type:         'payment',
+        description:  'One-Time Payment',
+        amount:       amountRef.current,  // use ref — never stale
+        currency:     'PKR',
+        status:       'succeeded',
+      });
+
+      let invoiceId: string | undefined;
+      try {
+        const invoice = await createInvoiceForTransaction(transaction);
+        invoiceId = invoice.id;
+      } catch (err) {
+        console.warn('[Invoice] generation failed:', err);
+      }
+
+      Alert.alert(
+        'Payment Successful 🎉',
+        invoiceId
+          ? 'Your payment is complete!'
+          : 'Your payment is complete, but the invoice PDF could not be prepared.',
+        [
+          ...(invoiceId
+            ? [{
+              text: 'View Invoice',
+              onPress: () => {
+                handledRef.current = false;
+                setAmount('');
+                onInvoiceGenerated?.(invoiceId);
+              },
+            }]
+            : []),
+          { text: 'OK', onPress: () => { handledRef.current = false; setAmount(''); } },
+        ],
+      );
     } else if (isCancel) {
       handledRef.current = true;
       setShowWebView(false);
@@ -120,9 +160,11 @@ export default function AmountScreen({ onBack }: Props) {
     setLoading(true);
     handledRef.current   = false;
     orderIdRef.current   = `order_${Date.now()}`;
+    amountRef.current    = amountInPKR; // snapshot before any async/re-render
 
     try {
       const token      = await createSafepayTracker(SAFEPAY_CLIENT_KEY, amountInPKR, 'PKR');
+      trackerToken.current = token;
       const url        = buildCheckoutUrl(token, orderIdRef.current);
       setCheckoutUrl(url);
       setShowWebView(true);

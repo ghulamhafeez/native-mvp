@@ -6,18 +6,20 @@ import {
   ActivityIndicator,
   StyleSheet,
   Alert,
-  SafeAreaView,
   Modal,
   StatusBar,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, WebViewNavigation } from 'react-native-webview';
+import { addTransaction } from '../store/transactions';
+import { createInvoiceForTransaction } from '../api/invoices';
+import {
+  SAFEPAY_MERCHANT_SECRET,
+  SAFEPAY_SANDBOX_URL,
+} from '../api/safepayConfig';
 
 // ─── Safepay Sandbox Config ───────────────────────────────────────────────────
-// Same merchant secret used in AmountScreen / backend
-const SAFEPAY_SANDBOX_URL = 'https://sandbox.api.getsafepay.com';
-const MERCHANT_SECRET     = 'ae022d549fb902451e2a2c174113df7708dc90b77ce485ddc7848b37bdeee8f5';
-
 // ─── Your real Safepay Sandbox Plan IDs ──────────────────────────────────────
 const PLANS: Plan[] = [
   {
@@ -54,6 +56,7 @@ type Plan = {
 
 type SubscriptionResult = {
   subscriptionId?: string;
+  invoiceId?:      string;
   planId:   string;
   planName: string;
   status:   'active' | 'cancelled';
@@ -73,7 +76,7 @@ async function fetchAuthToken(): Promise<string> {
     method:  'POST',
     headers: {
       'Content-Type':          'application/json',
-      'X-SFPY-MERCHANT-SECRET': MERCHANT_SECRET,
+      'X-SFPY-MERCHANT-SECRET': SAFEPAY_MERCHANT_SECRET,
     },
     body: JSON.stringify({}),
   });
@@ -113,6 +116,8 @@ export default function SubscriptionScreen({ onSuccess, onCancel }: Props) {
   const [checkoutUrl, setCheckoutUrl]   = useState<string | null>(null);
   const [showWebView, setShowWebView]   = useState(false);
   const handledRef                      = useRef(false);
+  // Auth token ref so we can use it as a payment token for refunds
+  const authTokenRef                    = useRef<string>('');
 
   // ── Build checkout URL directly on device (token stays fresh) ─────────────
   const handleSubscribe = async () => {
@@ -122,6 +127,7 @@ export default function SubscriptionScreen({ onSuccess, onCancel }: Props) {
 
     try {
       const authToken = await fetchAuthToken();
+      authTokenRef.current = authToken;
 
       const url = buildSubscriptionCheckoutUrl(
         selectedPlan.id,
@@ -144,7 +150,7 @@ export default function SubscriptionScreen({ onSuccess, onCancel }: Props) {
   };
 
   // ── Detect redirect URLs from Safepay ─────────────────────────────────────
-  const handleRedirect = (url: string) => {
+  const handleRedirect = async (url: string) => {
     if (handledRef.current) return;
 
     // Safepay redirects to the redirect_url / cancel_url we passed above.
@@ -163,6 +169,27 @@ export default function SubscriptionScreen({ onSuccess, onCancel }: Props) {
         planName: selectedPlan!.name,
         status:   'active',
       };
+
+      // Record in transaction store so it shows up in history with refund support
+      const planPrices: Record<string, number> = {
+        'plan_e27917d9-1f13-485b-905c-f3303f976940': 2000,
+        'plan_c09a27d7-0955-4824-8e36-8c0a59972766': 4000,
+        'plan_b04e1999-9a16-4026-ad6d-2d7d451ae4a8': 6000,
+      };
+      const transaction = await addTransaction({
+        paymentToken: authTokenRef.current,
+        type:         'subscription',
+        description:  `${selectedPlan!.name} Plan`,
+        amount:       planPrices[selectedPlan!.id] ?? 0,
+        currency:     'PKR',
+        status:       'succeeded',
+      });
+      try {
+        const invoice = await createInvoiceForTransaction(transaction);
+        result.invoiceId = invoice.id;
+      } catch (err) {
+        console.warn('[Invoice] generation failed:', err);
+      }
 
       if (onSuccess) {
         onSuccess(result);
@@ -216,8 +243,7 @@ export default function SubscriptionScreen({ onSuccess, onCancel }: Props) {
 
         {/* Header */}
         <Text style={styles.title}>Choose a Plan</Text>
-        <Text style={styles.subtitle}>Start with 7 days free. Cancel anytime.</Text>
-
+       
         {/* Plan cards */}
         {PLANS.map((plan) => {
           const selected = selectedPlan?.id === plan.id;
