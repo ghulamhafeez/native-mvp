@@ -61,7 +61,11 @@ function buildCheckoutUrl(token: string, orderId: string): string {
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
-export default function AmountScreen() {
+type Props = {
+  onBack?: () => void;
+};
+
+export default function AmountScreen({ onBack }: Props) {
   const [amount, setAmount]           = useState('');
   const [loading, setLoading]         = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
@@ -149,6 +153,13 @@ export default function AmountScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* Back button */}
+          {onBack && (
+            <TouchableOpacity style={styles.backBtn} onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={styles.backBtnText}>‹ Back</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Brand */}
           <View style={styles.brandRow}>
             <Text style={styles.brandText}>SafePay</Text>
@@ -274,6 +285,9 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     justifyContent: 'center',
   },
+
+  backBtn: { marginBottom: 8 },
+  backBtnText: { fontSize: 16, color: '#6B7280', fontWeight: '600' },
 
   brandRow: {
     flexDirection: 'row',
